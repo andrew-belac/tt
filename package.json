@@ -1,0 +1,7 @@
+{
+  "name": "tt-game",
+  "private": true,
+  "scripts": {
+    "dev": "npx live-server --port=3000 --open=index.html"
+  }
+}

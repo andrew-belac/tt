@@ -3303,6 +3303,13 @@ const WG = {
     {icon:'💣', label:'Bombing!'},
     {icon:'👟', label:'Shoes on!'},
   ],
+  _WH_GOOD: [
+    {icon:'🥽', label:'Goggles'},
+    {icon:'🌊', label:'Swimming'},
+    {icon:'👌', label:'Good form'},
+    {icon:'🏅', label:'Star swimmer'},
+    {icon:'💦', label:'Splashing'},
+  ],
   _whPeople: [], _whEarned: 0, _whCaught: 0, _whStars: [],
   _whRaf: null, _whLastT: 0, _whEffects: [],
 
@@ -3330,6 +3337,7 @@ const WG = {
         x: px, y: py,
         breaking,
         rule: breaking ? this._WH_RULES[Math.floor(Math.random() * this._WH_RULES.length)] : null,
+        goodIcon: breaking ? null : this._WH_GOOD[Math.floor(Math.random() * this._WH_GOOD.length)],
         tapped: false,
         bob: Math.random() * Math.PI * 2, // random start phase
       });
@@ -3389,12 +3397,18 @@ const WG = {
       // Person emoji
       ctx.font = '20px serif'; ctx.textAlign = 'center';
       ctx.fillText('🏊', p.x, p.y + bobY + 7);
-      // Rule-break icon above
+      // Icon above swimmer
       if (p.breaking) {
         ctx.font = '15px serif';
         ctx.fillText(p.rule.icon, p.x, p.y + bobY - 14);
         // Red border ring
         ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y + bobY, 18, 0, Math.PI * 2); ctx.stroke();
+      } else if (p.goodIcon) {
+        ctx.font = '15px serif';
+        ctx.fillText(p.goodIcon.icon, p.x, p.y + bobY - 14);
+        // Green border ring
+        ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(p.x, p.y + bobY, 18, 0, Math.PI * 2); ctx.stroke();
       }
     }

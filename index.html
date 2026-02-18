@@ -3401,15 +3401,9 @@ const WG = {
       if (p.breaking) {
         ctx.font = '15px serif';
         ctx.fillText(p.rule.icon, p.x, p.y + bobY - 14);
-        // Red border ring
-        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(p.x, p.y + bobY, 18, 0, Math.PI * 2); ctx.stroke();
       } else if (p.goodIcon) {
         ctx.font = '15px serif';
         ctx.fillText(p.goodIcon.icon, p.x, p.y + bobY - 14);
-        // Green border ring
-        ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(p.x, p.y + bobY, 18, 0, Math.PI * 2); ctx.stroke();
       }
     }
 

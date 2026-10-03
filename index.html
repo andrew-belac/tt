@@ -2,12 +2,33 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Times Tables</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0f172a;color:#f1f5f9;min-height:100vh;line-height:1.5}
 .hidden{display:none!important}
+
+/* TOUCH */
+html{-webkit-text-size-adjust:100%}
+button,.btn,.icon-btn,canvas{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.wg-dpad-btn,.np-key,.bk-action,#bk-canvas,#wg-canvas{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#bk-canvas{touch-action:none}
+.np{display:none;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;max-width:300px;margin-top:4px}
+.touch .np{display:grid}
+.np-key{height:58px;border-radius:12px;border:2px solid #475569;background:#1e293b;color:#f1f5f9;font-size:1.5rem;font-weight:800;touch-action:manipulation}
+.np-key:active{background:#334155;border-color:#6366f1}
+.np-del{color:#fca5a5}
+.np-ok{background:#4f46e5;border-color:#6366f1;color:#fff;font-size:1.1rem}
+.touch .game-btns #submit-btn{display:none}
+.bk-action{display:none;width:100%;max-width:340px;padding:16px;font-size:1.2rem;font-weight:800;border-radius:14px;border:none;background:#f97316;color:#fff}
+.touch .bk-action{display:block}
+.bk-action:active{background:#ea580c}
+.touch .wg-dpad-btn{width:64px;height:64px;font-size:1.5rem}
+.touch .wg-dpad-enter{width:80px}
+.touch .bk-wrap,.touch .wg-game-wrap{padding-bottom:max(32px,env(safe-area-inset-bottom))}
 .view{min-height:100vh;display:flex;flex-direction:column}
 
 /* TOP BAR */
@@ -318,6 +339,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0f172
     <div class="ans-area">
       <input id="ans-input" type="number" class="ans-input" placeholder="?"
              min="1" max="144" autocomplete="off" inputmode="numeric">
+      <div class="np" data-target="ans-input"></div>
       <div id="fb-text" class="fb-text"></div>
       <div class="game-btns">
         <button class="btn btn-primary btn-lg" onclick="submitAnswer()" id="submit-btn">Submit</button>
@@ -394,11 +416,12 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0f172
   <div class="bk-wrap">
     <div class="bk-info">
       <span id="bk-counter">Throw 1 / 5</span>
-      <span style="font-size:0.78rem;color:#475569">↑↓ aim · Enter power · Enter throw</span>
+      <span id="bk-hint" style="font-size:0.78rem;color:#475569">↑↓ aim · Enter power · Enter throw</span>
       <span id="bk-score">🏀 0 scored</span>
     </div>
     <canvas id="bk-canvas" width="700" height="400"></canvas>
     <div class="bk-controls">
+      <button id="bk-action" class="bk-action" type="button">Set power</button>
       <div id="bk-power-wrap" class="bk-power-wrap hidden">
         <span class="bk-power-label">Power</span>
         <div class="bk-power-track">
@@ -455,6 +478,45 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0f172
 </div>
 
 <script>
+// ─────────────────────────────────────────────────────────
+// TOUCH SUPPORT
+// ─────────────────────────────────────────────────────────
+let TOUCH = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+function enableTouchMode() {
+  TOUCH = true;
+  document.documentElement.classList.add('touch');
+  document.querySelectorAll('.np').forEach(np => document.getElementById(np.dataset.target)?.setAttribute('inputmode', 'none'));
+}
+if (TOUCH) document.documentElement.classList.add('touch');
+// Catches devices/emulators that don't report touch up front: first real touch turns it on.
+window.addEventListener('pointerdown', e => { if (!TOUCH && e.pointerType === 'touch') enableTouchMode(); }, true);
+
+// Custom number pad: fills every <div class="np" data-target="inputId"> with keys.
+// On touch devices the inputs use inputmode="none" so the system keyboard stays hidden
+// (a hardware keyboard on iPad still types into them).
+function setupNumpads(root) {
+  (root || document).querySelectorAll('.np:not([data-ready])').forEach(np => {
+    np.dataset.ready = '1';
+    const keys = ['1','2','3','4','5','6','7','8','9','⌫','0','OK'];
+    np.innerHTML = keys.map(k =>
+      `<button type="button" class="np-key ${k==='⌫'?'np-del':k==='OK'?'np-ok':''}" data-k="${k}">${k}</button>`).join('');
+    const inp = document.getElementById(np.dataset.target);
+    if (inp && TOUCH) inp.setAttribute('inputmode', 'none');
+    np.addEventListener('pointerdown', e => {
+      const b = e.target.closest('.np-key');
+      if (!b) return;
+      e.preventDefault();
+      const input = document.getElementById(np.dataset.target);
+      if (!input || input.disabled) return;
+      const k = b.dataset.k;
+      if (k === '⌫') input.value = input.value.slice(0, -1);
+      else if (k === 'OK') { if (np.dataset.target === 'sm-ans') SM._checkAns(); else submitAnswer(); }
+      else if (input.value.length < 4) input.value += k;
+    });
+  });
+}
+document.addEventListener('DOMContentLoaded', () => setupNumpads());
+
 // ─────────────────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────────────────
@@ -650,7 +712,7 @@ function showQuestion() {
     `✓ ${cor} / ${gs.ans.length}`;
 
   document.getElementById('q-text').textContent = `${q.a} × ${q.b} = ?`;
-  document.getElementById('q-sub').textContent  = 'Type your answer and press Enter';
+  document.getElementById('q-sub').textContent  = TOUCH ? 'Tap your answer, then OK' : 'Type your answer and press Enter';
 
   const inp = document.getElementById('ans-input');
   inp.value = ''; inp.className = 'ans-input'; inp.disabled = false;
@@ -1083,6 +1145,29 @@ const WG = {
     if (d) d.classList.toggle('hidden');
   },
 
+  _bindDpad() {
+    const pad = document.getElementById('wg-dpad');
+    if (!pad) return;
+    const held = new Map();   // pointerId -> key
+    const release = e => {
+      const k = held.get(e.pointerId);
+      if (k === undefined) return;
+      held.delete(e.pointerId);
+      this.dkey(k, 0);
+    };
+    pad.addEventListener('pointerdown', e => {
+      const b = e.target.closest('.wg-dpad-btn');
+      if (!b) return;
+      e.preventDefault();
+      try { b.setPointerCapture(e.pointerId); } catch {}
+      held.set(e.pointerId, b.dataset.key);
+      this.dkey(b.dataset.key, 1);
+    });
+    pad.addEventListener('pointerup', release);
+    pad.addEventListener('pointercancel', release);
+    pad.addEventListener('contextmenu', e => e.preventDefault());
+  },
+
   dkey(key, down) {
     this.keys[key] = !!down;
     if (down && (key === ' ' || key === 'Enter')) {
@@ -1370,29 +1455,17 @@ const WG = {
         </div>
         <canvas id="wg-canvas" width="560" height="340"
           ondblclick="WG.toggleDpad()" style="cursor:pointer"></canvas>
-        <div class="wg-hint">Arrow keys to move · Space to enter building · Double-click canvas for D-pad</div>
-        <div id="wg-dpad" class="wg-dpad hidden">
-          <div class="wg-dpad-row">
-            <button class="wg-dpad-btn" onmousedown="WG.dkey('ArrowUp',1)" onmouseup="WG.dkey('ArrowUp',0)"
-              ontouchstart="WG.dkey('ArrowUp',1)" ontouchend="WG.dkey('ArrowUp',0)">▲</button>
-          </div>
-          <div class="wg-dpad-row">
-            <button class="wg-dpad-btn" onmousedown="WG.dkey('ArrowLeft',1)" onmouseup="WG.dkey('ArrowLeft',0)"
-              ontouchstart="WG.dkey('ArrowLeft',1)" ontouchend="WG.dkey('ArrowLeft',0)">◀</button>
-            <button class="wg-dpad-btn wg-dpad-enter" onmousedown="WG.dkey(' ',1)" onmouseup="WG.dkey(' ',0)"
-              ontouchstart="WG.dkey(' ',1)" ontouchend="WG.dkey(' ',0)">ENTER</button>
-            <button class="wg-dpad-btn" onmousedown="WG.dkey('ArrowRight',1)" onmouseup="WG.dkey('ArrowRight',0)"
-              ontouchstart="WG.dkey('ArrowRight',1)" ontouchend="WG.dkey('ArrowRight',0)">▶</button>
-          </div>
-          <div class="wg-dpad-row">
-            <button class="wg-dpad-btn" onmousedown="WG.dkey('ArrowDown',1)" onmouseup="WG.dkey('ArrowDown',0)"
-              ontouchstart="WG.dkey('ArrowDown',1)" ontouchend="WG.dkey('ArrowDown',0)">▼</button>
-          </div>
+        <div class="wg-hint">${TOUCH ? 'Use the D-pad to move · ENTER to go into a building' : 'Arrow keys to move · Space to enter building · Double-click canvas for D-pad'}</div>
+        <div id="wg-dpad" class="wg-dpad ${TOUCH ? '' : 'hidden'}">
+          <div class="wg-dpad-row"><button class="wg-dpad-btn" data-key="ArrowUp">▲</button></div>
+          <div class="wg-dpad-row"><button class="wg-dpad-btn" data-key="ArrowLeft">◀</button><button class="wg-dpad-btn wg-dpad-enter" data-key=" ">ENTER</button><button class="wg-dpad-btn" data-key="ArrowRight">▶</button></div>
+          <div class="wg-dpad-row"><button class="wg-dpad-btn" data-key="ArrowDown">▼</button></div>
         </div>
         <button class="btn btn-secondary btn-sm" onclick="WG.resetWorld()" style="margin-top:4px">🗑 New World</button>
       </div>`;
     this.canvas = document.getElementById('wg-canvas');
     this.ctx    = this.canvas.getContext('2d');
+    this._bindDpad();
     this.keys   = {};
     if (this.raf) cancelAnimationFrame(this.raf);
     this.lastTs = 0;
@@ -4820,11 +4893,13 @@ const SM = {
         <div class="ans-area" style="margin-top:24px">
           <input id="sm-ans" type="number" class="ans-input" placeholder="?"
             autocomplete="off" inputmode="numeric" style="max-width:200px">
+          <div class="np" data-target="sm-ans"></div>
           <div id="sm-fb" class="fb-text"></div>
           <button class="btn btn-primary btn-lg" onclick="SM._checkAns()">Check</button>
           <button class="btn btn-secondary btn-sm" onclick="SM.renderLibrary()">✕ Stop</button>
         </div>
       </div>`;
+    setupNumpads(document.getElementById('sm-content'));
     setTimeout(() => document.getElementById('sm-ans')?.focus(), 50);
   },
 
@@ -4965,6 +5040,8 @@ const BK = {
     this.scored   = 0;
     this.updateGenderBtn();
     this.resize();
+    this._bindTouch();
+    if (TOUCH) document.getElementById('bk-hint').textContent = 'Drag up/down to aim · tap to throw';
     this.newThrow();
     if (this.raf) cancelAnimationFrame(this.raf);
     this.lastTime = 0;
@@ -4973,6 +5050,45 @@ const BK = {
 
   stop() {
     if (this.raf) { cancelAnimationFrame(this.raf); this.raf = null; }
+  },
+
+  // Drag vertically on the canvas to aim; a tap (little movement) = Enter.
+  _bindTouch() {
+    if (this._touchBound) return;
+    this._touchBound = true;
+    const c = this.canvas;
+    let drag = null;
+    c.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      try { c.setPointerCapture(e.pointerId); } catch {}
+      drag = { id: e.pointerId, y0: e.clientY, a0: this.angle, moved: false };
+    });
+    c.addEventListener('pointermove', e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dy = drag.y0 - e.clientY;
+      if (Math.abs(dy) > 8) drag.moved = true;
+      if (drag.moved && this.state === 'AIMING') {
+        const scale = 400 / c.getBoundingClientRect().height;   // canvas px per css px
+        this.angle = Math.max(12, Math.min(78, drag.a0 + dy * scale * 0.25));
+      }
+    });
+    const end = e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const wasTap = !drag.moved;
+      drag = null;
+      if (wasTap && e.type === 'pointerup') this.handleKey('Enter');
+    };
+    c.addEventListener('pointerup', end);
+    c.addEventListener('pointercancel', end);
+    document.getElementById('bk-action').addEventListener('pointerdown', e => {
+      e.preventDefault();
+      this.handleKey('Enter');
+    });
+  },
+
+  _actionLabel(t) {
+    const b = document.getElementById('bk-action');
+    if (b) b.textContent = t;
   },
 
   resize() {
@@ -5005,7 +5121,9 @@ const BK = {
     document.getElementById('bk-score').textContent =
       `🏀 ${this.scored} scored`;
     document.getElementById('bk-power-wrap').classList.add('hidden');
-    this.setMsg(`<span class="bk-key">↑</span><span class="bk-key">↓</span> to aim,
+    this._actionLabel('Set power');
+    this.setMsg(TOUCH ? 'Drag up/down on the court to aim, then tap <b>Set power</b>'
+      : `<span class="bk-key">↑</span><span class="bk-key">↓</span> to aim,
       then <span class="bk-key">Enter</span> to set power`);
   },
 
@@ -5022,7 +5140,9 @@ const BK = {
         this.power    = 0;
         this.powerDir = 1;
         document.getElementById('bk-power-wrap').classList.remove('hidden');
-        this.setMsg(`Watch the power bar — press <span class="bk-key">Enter</span> to throw!`);
+        this._actionLabel('Throw!');
+        this.setMsg(TOUCH ? 'Watch the power bar — tap <b>Throw!</b> at the right moment'
+          : `Watch the power bar — press <span class="bk-key">Enter</span> to throw!`);
       }
     } else if (this.state === 'POWER') {
       if (key === 'Enter') this.launch();
@@ -5031,6 +5151,7 @@ const BK = {
 
   launch() {
     this.state = 'FLYING';
+    this._actionLabel('…');
     document.getElementById('bk-power-wrap').classList.add('hidden');
     this.setMsg('');
     const rad  = this.angle * Math.PI / 180;
